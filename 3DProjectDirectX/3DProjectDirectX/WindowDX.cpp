@@ -72,11 +72,8 @@ bool WindowDX::Initialize()
     if (!InitWindow())
         return false;
 
-    //if (!InitDirect3D())
-    //    return false;
-
-    // Do the initial resize code.
-    //OnResize();
+    if (!InitDirect3D())
+        return false;
 
     return true;
 }
@@ -96,6 +93,8 @@ int WindowDX::Run()
         // Otherwise, do animation/game stuff.
         else
         {
+            Update();
+            Draw();
             //mTimer.Tick();
 
             //if (!mAppPaused)
@@ -114,12 +113,20 @@ int WindowDX::Run()
     return (int)msg.wParam;
 }
 
+void WindowDX::Update()
+{
+}
+
+void WindowDX::Draw()
+{
+}
+
 LRESULT WindowDX::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch (msg)
     {
     case WM_SIZE:
-        // Gerer le redimensionnement de la fenêtre
+        // Gerer le redimensionnement de la fenetre
         break;
     case WM_KEYDOWN:
         // Gerer la pression de touche
@@ -133,4 +140,125 @@ LRESULT WindowDX::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     }
 
     return 0;
+}
+
+bool WindowDX::InitDirect3D()
+{
+    // Debug Log DirectX 
+    ComPtr<ID3D12Debug> debugController;
+    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
+    {
+        debugController->EnableDebugLayer();
+    }
+
+    // 1 Creation du factory DXGI
+    ComPtr<IDXGIFactory4> dxgiFactory;
+    if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory))))
+    {
+        MessageBox(0, L"Erreur lors de la creation du DXGIFactory.", 0, 0);
+        return false;
+    }
+
+    // 2 Creation du device DirectX12
+    if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0,IID_PPV_ARGS(&mD3DDevice))))
+    {
+        MessageBox(0, L"Erreur lors de la creation du D3D12 Device.", 0, 0);
+        return false;
+    }
+
+    //ComPtr<ID3D12CommandAllocator> mCommandAllocator;
+    HRESULT hr = mD3DDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&mCommandAllocator));
+    if (FAILED(hr))
+    {
+        MessageBox(0, L"Erreur lors de la creation du Command Allocator.", 0, 0);
+        return false;
+    }
+
+    // 2.5 Creation de la Command List
+    if (FAILED(mD3DDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mCommandAllocator.Get(), nullptr, IID_PPV_ARGS(&mCommandList))))
+    {
+        MessageBox(0, L"Erreur lors de la creation de la Command List.", 0, 0);
+        return false;
+    }
+    // commandlist "en attente"
+    mCommandList->Close();
+
+    // 3 Creation de la Command Queue
+    D3D12_COMMAND_QUEUE_DESC queueDesc = {};
+    queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+    queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+    if (FAILED(mD3DDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&mCommandQueue))))
+    {
+        MessageBox(0, L"Erreur lors de la creation de la Command Queue.", 0, 0);
+        return false;
+    }
+
+    HRESULT hrFence = mD3DDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&mFence));
+    if (FAILED(hrFence))
+    {
+        MessageBox(0, L"Erreur lors de la creation du Fence.", 0, 0);
+        return false;
+    }
+    mFenceValue = 1;
+
+    if (m_clientWidth <= 0 || m_clientHeight <= 0)
+    {
+        MessageBox(0, L"Les dimensions de la fenetre sont invalides.", 0, 0);
+        return false;
+    }
+
+    // 4 Creation du Swap Chain
+    DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
+    swapChainDesc.Width = m_clientWidth;
+    swapChainDesc.Height = m_clientHeight;
+    swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    //swapChainDesc.BufferDesc.RefreshRate.Numerator = 60;
+    //swapChainDesc.BufferDesc.RefreshRate.Denominator = 1;
+    swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swapChainDesc.BufferCount = mFrameCount;
+    //swapChainDesc.OutputWindow = m_mainWindow; // la window qui a ete creer
+    //swapChainDesc.Windowed = TRUE;
+    swapChainDesc.SampleDesc.Count = 1;
+    swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+
+    ComPtr<IDXGISwapChain1> swapChain;
+
+    HRESULT hrSChain = dxgiFactory->CreateSwapChainForHwnd(mCommandQueue.Get(), m_mainWindow, &swapChainDesc, nullptr, nullptr, &swapChain);
+    if (FAILED(hrSChain))
+    {
+        wchar_t errorMsg[256];
+        swprintf_s(errorMsg, L"CreateSwapChainForHwnd failed with HRESULT 0x%08X.", hrSChain);
+        MessageBox(0, errorMsg, L"Swap Chain Error", MB_OK);
+        return false;
+    }
+    // convertion du swapchain1 au 3
+    swapChain.As(&mSwapChain);
+
+    // 5 Creation du Descriptor Heap pour les Render Target Views (RTV)
+    D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
+    rtvHeapDesc.NumDescriptors = mFrameCount;
+    rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+    rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+    if (FAILED(mD3DDevice->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&mRtvHeap))))
+    {
+        MessageBox(0, L"Erreur lors de la creation du RTV Heap.", 0, 0);
+        return false;
+    }
+    mRtvDescriptorSize = mD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+    // 6 Creation des Render Target Views pour chaque buffer du swap chain
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(mRtvHeap->GetCPUDescriptorHandleForHeapStart());
+    for (UINT i = 0; i < mFrameCount; i++)
+    {
+        if (FAILED(mSwapChain->GetBuffer(i, IID_PPV_ARGS(&mRenderTargets[i]))))
+        {
+            MessageBox(0, L"Erreur lors de la recuperation du buffer du Swap Chain.", 0, 0);
+            return false;
+        }
+        mD3DDevice->CreateRenderTargetView(mRenderTargets[i].Get(), nullptr, rtvHandle);
+        rtvHandle.Offset(1, mRtvDescriptorSize);
+    }
+
+    return true;
 }

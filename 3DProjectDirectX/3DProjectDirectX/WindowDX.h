@@ -5,11 +5,14 @@
 #include <d3d12.h>
 #include <wrl.h>
 #include <dxgi1_4.h>
+#include <string>
 
 // Debug
 #include <cassert> 
 
-#include <string>
+// DirectX12
+#include "d3dx12.h"
+using Microsoft::WRL::ComPtr;
 
 class WindowDX
 {
@@ -26,6 +29,10 @@ public:
 
 	int Run();
 
+	virtual void Update();
+	virtual void Draw();
+
+
 private:
 	static WindowDX* m_Application; // ref instance de la classe
 
@@ -36,5 +43,24 @@ private:
 	std::wstring m_windowTitle = L"WINDOW 3D";
 	int m_clientWidth = 800;
 	int m_clientHeight = 600;
+
+protected:
+	// Nouvelle methode pour initialiser DirectX12
+	bool InitDirect3D();
+
+	// Membres DirectX12
+	UINT mFrameIndex = 0;
+	UINT64 mFenceValue = 0;
+	ComPtr<ID3D12Fence> mFence;
+	ComPtr<ID3D12CommandAllocator> mCommandAllocator;
+	ComPtr<ID3D12Device>           mD3DDevice;
+	ComPtr<ID3D12GraphicsCommandList> mCommandList;
+	ComPtr<ID3D12CommandQueue>     mCommandQueue;
+	ComPtr<IDXGISwapChain3>        mSwapChain;
+	ComPtr<ID3D12DescriptorHeap>   mRtvHeap;
+	static const UINT			   mFrameCount = 2; // Double buffering
+	ComPtr<ID3D12Resource>         mRenderTargets[mFrameCount];
+	UINT                           mRtvDescriptorSize = 0;
+
 };
 
