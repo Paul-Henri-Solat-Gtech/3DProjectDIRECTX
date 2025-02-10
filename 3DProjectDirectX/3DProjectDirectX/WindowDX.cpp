@@ -31,10 +31,10 @@ bool WindowDX::InitWindow()
 	// Initialise la classe window
     WNDCLASS windowClass = {};                          // Definition de la structure WNDCLASS
     windowClass.style = CS_HREDRAW | CS_VREDRAW;        // Redessine la fenetre si elle est redimensionnee
-    windowClass.lpfnWndProc = MainWndProc;               // Fonction de callback pour gerer les messages
+    windowClass.lpfnWndProc = MainWndProc;              // Fonction de callback pour gerer les messages
     windowClass.cbClsExtra = 0;                         // Pas d'espace supplementaire alloue pour cette classe
     windowClass.cbWndExtra = 0;                         // Pas d'espace supplementaire alloue pour chaque fenetre
-    windowClass.hInstance = m_appInstance;                  // Instance de l'application
+    windowClass.hInstance = m_appInstance;              // Instance de l'application
     windowClass.hIcon = LoadIcon(0, IDI_APPLICATION);   // Utilisation de l'icone par defaut
     windowClass.hCursor = LoadCursor(0, IDC_ARROW);     // Curseur par defaut
     windowClass.hbrBackground = (HBRUSH)GetStockObject(NULL_BRUSH); // Pas de fond specifique
@@ -47,12 +47,13 @@ bool WindowDX::InitWindow()
         return false;
     }
 
-    // Compute window rectangle dimensions based on requested client area dimensions.
+    // Compute window rectangle dimensions based on requested client area dimensions
     RECT R = { 0, 0, m_clientWidth, m_clientHeight };
     AdjustWindowRect(&R, WS_OVERLAPPEDWINDOW, false);
     int width = R.right - R.left;
     int height = R.bottom - R.top;
 
+    // Creation de la fenetre
     m_mainWindow = CreateWindow(L"DX12WindowClass", m_windowTitle.c_str(), WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, m_appInstance, 0);
     
     if (!m_mainWindow)
@@ -75,6 +76,7 @@ bool WindowDX::Initialize()
     if (!InitDirect3D())
         return false;
 
+    MessageBox(0, L"INIT REUSSI !", L"Init", MB_OK);
     return true;
 }
 
@@ -133,7 +135,20 @@ LRESULT WindowDX::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         break;
         // Autres messages ici
     case WM_DESTROY:
+        if (mD3DDevice) 
+        {
+            // Libere les ressources Direct3D, les objets COM
+            mD3DDevice->Release();
+        }
         PostQuitMessage(0); // Indique que l'application doit se terminer
+        break;
+    case WM_CLOSE:
+        if (mD3DDevice)
+        {
+            // Libere les ressources Direct3D, les objets COM
+            mD3DDevice->Release();
+        }
+        DestroyWindow(hwnd); // Ferme la fenetre
         break;
     default:
         return DefWindowProc(hwnd, msg, wParam, lParam); // Traite les autres messages par defaut
@@ -144,12 +159,15 @@ LRESULT WindowDX::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 bool WindowDX::InitDirect3D()
 {
-    // Debug Log DirectX 
+    // Debug Log DirectX & Enable run-time memory check for debug build
+#ifdef _DEBUG
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
     ComPtr<ID3D12Debug> debugController;
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
     {
         debugController->EnableDebugLayer();
     }
+#endif
 
     // 1 Creation du factory DXGI
     ComPtr<IDXGIFactory4> dxgiFactory;
@@ -166,23 +184,6 @@ bool WindowDX::InitDirect3D()
         return false;
     }
 
-    //ComPtr<ID3D12CommandAllocator> mCommandAllocator;
-    HRESULT hr = mD3DDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&mCommandAllocator));
-    if (FAILED(hr))
-    {
-        MessageBox(0, L"Erreur lors de la creation du Command Allocator.", 0, 0);
-        return false;
-    }
-
-    // 2.5 Creation de la Command List
-    if (FAILED(mD3DDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mCommandAllocator.Get(), nullptr, IID_PPV_ARGS(&mCommandList))))
-    {
-        MessageBox(0, L"Erreur lors de la creation de la Command List.", 0, 0);
-        return false;
-    }
-    // commandlist "en attente"
-    mCommandList->Close();
-
     // 3 Creation de la Command Queue
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
     queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
@@ -192,14 +193,6 @@ bool WindowDX::InitDirect3D()
         MessageBox(0, L"Erreur lors de la creation de la Command Queue.", 0, 0);
         return false;
     }
-
-    HRESULT hrFence = mD3DDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&mFence));
-    if (FAILED(hrFence))
-    {
-        MessageBox(0, L"Erreur lors de la creation du Fence.", 0, 0);
-        return false;
-    }
-    mFenceValue = 1;
 
     if (m_clientWidth <= 0 || m_clientHeight <= 0)
     {
@@ -212,28 +205,23 @@ bool WindowDX::InitDirect3D()
     swapChainDesc.Width = m_clientWidth;
     swapChainDesc.Height = m_clientHeight;
     swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    //swapChainDesc.BufferDesc.RefreshRate.Numerator = 60;
-    //swapChainDesc.BufferDesc.RefreshRate.Denominator = 1;
     swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     swapChainDesc.BufferCount = mFrameCount;
-    //swapChainDesc.OutputWindow = m_mainWindow; // la window qui a ete creer
-    //swapChainDesc.Windowed = TRUE;
     swapChainDesc.SampleDesc.Count = 1;
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
     ComPtr<IDXGISwapChain1> swapChain;
 
-    HRESULT hrSChain = dxgiFactory->CreateSwapChainForHwnd(mCommandQueue.Get(), m_mainWindow, &swapChainDesc, nullptr, nullptr, &swapChain);
-    if (FAILED(hrSChain))
+    HRESULT commandResult = dxgiFactory->CreateSwapChainForHwnd(mCommandQueue.Get(), m_mainWindow, &swapChainDesc, nullptr, nullptr, &swapChain);
+    if (FAILED(commandResult))
     {
         wchar_t errorMsg[256];
-        swprintf_s(errorMsg, L"CreateSwapChainForHwnd failed with HRESULT 0x%08X.", hrSChain);
+        swprintf_s(errorMsg, L"CreateSwapChainForHwnd failed with HRESULT 0x%08X.", commandResult);
         MessageBox(0, errorMsg, L"Swap Chain Error", MB_OK);
         return false;
     }
-    // convertion du swapchain1 au 3
-    swapChain.As(&mSwapChain);
+    swapChain.As(&mSwapChain); // convertion du swapchain1 au 3
 
     // 5 Creation du Descriptor Heap pour les Render Target Views (RTV)
     D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
@@ -245,9 +233,10 @@ bool WindowDX::InitDirect3D()
         MessageBox(0, L"Erreur lors de la creation du RTV Heap.", 0, 0);
         return false;
     }
-    mRtvDescriptorSize = mD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
     // 6 Creation des Render Target Views pour chaque buffer du swap chain
+    mRtvDescriptorSize = mD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(mRtvHeap->GetCPUDescriptorHandleForHeapStart());
     for (UINT i = 0; i < mFrameCount; i++)
     {
@@ -259,6 +248,32 @@ bool WindowDX::InitDirect3D()
         mD3DDevice->CreateRenderTargetView(mRenderTargets[i].Get(), nullptr, rtvHandle);
         rtvHandle.Offset(1, mRtvDescriptorSize);
     }
+
+    // 7 Creation du CommandAllocator
+    commandResult = mD3DDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&mCommandAllocator));
+    if (FAILED(commandResult))
+    {
+        MessageBox(0, L"Erreur lors de la creation du Command Allocator.", 0, 0);
+        return false;
+    }
+
+    // 8 Creation de la Command List
+    commandResult = mD3DDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mCommandAllocator.Get(), nullptr, IID_PPV_ARGS(&mCommandList));
+    if (FAILED(commandResult))
+    {
+        MessageBox(0, L"Erreur lors de la creation de la Command List.", 0, 0);
+        return false;
+    }
+    mCommandList->Close(); // commandlist "en attente"
+
+    // 9 Creation de fence
+    commandResult = mD3DDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&mFence));
+    if (FAILED(commandResult))
+    {
+        MessageBox(0, L"Erreur lors de la creation du Fence.", 0, 0);
+        return false;
+    }
+    mFenceValue = 1;
 
     return true;
 }

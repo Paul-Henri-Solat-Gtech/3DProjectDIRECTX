@@ -18,16 +18,10 @@ private:
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd)
 {
-    // Enable run-time memory check for debug builds.
-#if defined(DEBUG) | defined(_DEBUG)
-    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-#endif
-
     InitDirect3DApp theApp(hInstance);
     if (!theApp.Initialize())
         return 0;
     return theApp.Run();
-
 }
 
 InitDirect3DApp::InitDirect3DApp(HINSTANCE hInstance) : WindowDX(hInstance)
@@ -85,6 +79,9 @@ void InitDirect3DApp::Draw()
     // Effacer le tampon de rendu avec la couleur de fond
     mCommandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 
+    // Appel pour dessiner le triangle
+    //m_TriangleRenderer->Render(); // Rendu du triangle ici
+
     // Fermer la Command List
     mCommandList->Close();
 
@@ -114,6 +111,10 @@ void InitDirect3DApp::Draw()
         CloseHandle(eventHandle);
     }
     mFenceValue++;
+
+    // Transition du back buffer de RENDER_TARGET à PRESENT avant de le présenter
+    barrier = CD3DX12_RESOURCE_BARRIER::Transition(mRenderTargets[mFrameIndex].Get(),D3D12_RESOURCE_STATE_RENDER_TARGET,D3D12_RESOURCE_STATE_PRESENT);
+    mCommandList->ResourceBarrier(1, &barrier);
 
     // Presenter le SwapChain (1 pour V-Sync)
     mSwapChain->Present(1, 0);

@@ -12,6 +12,7 @@
 
 // DirectX12
 #include "d3dx12.h"
+
 using Microsoft::WRL::ComPtr;
 
 class WindowDX

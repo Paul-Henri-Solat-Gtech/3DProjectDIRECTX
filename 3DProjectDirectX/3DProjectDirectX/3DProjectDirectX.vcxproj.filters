@@ -36,4 +36,7 @@
       <Filter>Fichiers d%27en-tête</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="DefaultShader.hlsl" />
+  </ItemGroup>
 </Project>

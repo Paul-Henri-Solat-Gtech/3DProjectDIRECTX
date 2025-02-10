@@ -32,7 +32,7 @@ void TriangleRenderer::Render()
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_RtvHeap->GetCPUDescriptorHandleForHeapStart(), backBufferIndex, m_RtvDescriptorSize);
 
     // Clear the render target
-    FLOAT clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
+    FLOAT clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
     m_CommandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 
     // Set the pipeline state and root signature
@@ -66,8 +66,8 @@ void TriangleRenderer::CreatePipelineState()
     // Load and compile shaders
     ComPtr<ID3DBlob> vertexShader;
     ComPtr<ID3DBlob> pixelShader;
-    D3DCompileFromFile(L"TriangleShader.hlsl", nullptr, nullptr, "VS", "vs_5_0", 0, 0, &vertexShader, nullptr);
-    D3DCompileFromFile(L"TriangleShader.hlsl", nullptr, nullptr, "PS", "ps_5_0", 0, 0, &pixelShader, nullptr);
+    D3DCompileFromFile(L"DefaultShader.hlsl", nullptr, nullptr, "VSMain", "vs_5_0", 0, 0, &vertexShader, nullptr);
+    D3DCompileFromFile(L"DefaultShader.hlsl", nullptr, nullptr, "PSMain", "ps_5_0", 0, 0, &pixelShader, nullptr);
 
     // Define the input layout
     D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
