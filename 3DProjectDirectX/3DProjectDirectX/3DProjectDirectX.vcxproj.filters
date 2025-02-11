@@ -24,6 +24,9 @@
     <ClCompile Include="TriangleRenderer.cpp">
       <Filter>Fichiers sources</Filter>
     </ClCompile>
+    <ClCompile Include="d3dUtil.cpp">
+      <Filter>Fichiers sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="WindowDX.h">
@@ -35,8 +38,16 @@
     <ClInclude Include="TriangleRenderer.h">
       <Filter>Fichiers d%27en-tête</Filter>
     </ClInclude>
+    <ClInclude Include="d3dUtil.h">
+      <Filter>Fichiers d%27en-tête</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="DefaultShader.hlsl" />
+    <FxCompile Include="PixelShader.hlsl">
+      <Filter>Fichiers sources</Filter>
+    </FxCompile>
+    <FxCompile Include="VertexShader.hlsl">
+      <Filter>Fichiers sources</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

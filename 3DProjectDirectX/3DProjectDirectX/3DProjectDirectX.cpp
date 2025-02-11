@@ -10,9 +10,10 @@ public:
     bool Initialize();
     void Update() override;
     void Draw() override;
+    void FlushCommandQueue();
 
 private:
-    //std::unique_ptr<TriangleRenderer> m_TriangleRenderer;
+    std::unique_ptr<TriangleRenderer> m_TriangleRenderer;
 
 };
 
@@ -33,20 +34,28 @@ bool InitDirect3DApp::Initialize()
     if (!WindowDX::Initialize())
         return false;
 
-    //m_TriangleRenderer = std::make_unique<TriangleRenderer>(mD3DDevice.Get(), mCommandQueue.Get(), mSwapChain.Get(), mRtvHeap.Get());
-    //if (!m_TriangleRenderer->Initialize())
-    //    return false;
+    FlushCommandQueue();
+
+    m_TriangleRenderer = std::make_unique<TriangleRenderer>(mD3DDevice.Get(), mCommandQueue.Get(),mCommandList.Get(), mSwapChain.Get(), mRtvHeap.Get());
+    if (!m_TriangleRenderer->Initialize())
+        return false;
 
     return true;
 }
 void InitDirect3DApp::Update()
 {
     // Update logic for the triangle
-    //m_TriangleRenderer->Update();
+    m_TriangleRenderer->Update();
 }
 
 void InitDirect3DApp::Draw()
 {
+    assert(mD3DDevice);
+    assert(mSwapChain);
+    assert(mCommandAllocator);
+
+    FlushCommandQueue();
+
     // Reinitialise le command allocator et la command list
     HRESULT hr = mCommandAllocator->Reset();
     if (FAILED(hr))
@@ -61,13 +70,7 @@ void InitDirect3DApp::Draw()
         return;
     }
 
-    // Render the triangle
-    //m_TriangleRenderer->Render();
-    
-    // Changer la couleur
-    FLOAT clearColor[4] = { 0.0f, 0.0f, 1.0f, 1.0f }; // Bleu (RGBA)
-
-    mFrameIndex = mSwapChain->GetCurrentBackBufferIndex();
+    //mFrameIndex = mSwapChain->GetCurrentBackBufferIndex();
 
     // Prendre le handle de la vue du tampon de rendu
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(mRtvHeap->GetCPUDescriptorHandleForHeapStart(), mFrameIndex, mRtvDescriptorSize);
@@ -76,11 +79,12 @@ void InitDirect3DApp::Draw()
     CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(mRenderTargets[mFrameIndex].Get(),D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
     mCommandList->ResourceBarrier(1, &barrier);
 
-    // Effacer le tampon de rendu avec la couleur de fond
-    mCommandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-
     // Appel pour dessiner le triangle
-    //m_TriangleRenderer->Render(); // Rendu du triangle ici
+    m_TriangleRenderer->Render(); // Rendu du triangle ici
+
+    // Transition du back buffer de RENDER_TARGET à PRESENT avant de le présenter
+    barrier = CD3DX12_RESOURCE_BARRIER::Transition(mRenderTargets[mFrameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+    mCommandList->ResourceBarrier(1, &barrier);
 
     // Fermer la Command List
     mCommandList->Close();
@@ -89,15 +93,33 @@ void InitDirect3DApp::Draw()
     ID3D12CommandList* ppCommandLists[] = { mCommandList.Get() };
     mCommandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
-    // --- Signal et synchronisation via le fence
-    hr = mCommandQueue->Signal(mFence.Get(), mFenceValue);
+    FlushCommandQueue();
+
+    // Presenter le SwapChain (1 pour V-Sync)
+    mSwapChain->Present(1, 0);
+
+    //mFrameIndex = 1 - mFrameIndex;
+    mFrameIndex += 1;
+
+    FlushCommandQueue();
+}
+
+void InitDirect3DApp::FlushCommandQueue()
+{
+    // Advance the fence value to mark commands up to this fence point.
+    mFenceValue++;
+
+    // Add an instruction to the command queue to set a new fence point.  Because we 
+    // are on the GPU timeline, the new fence point won't be set until the GPU finishes
+    // processing all the commands prior to this Signal().
+    HRESULT hr = mCommandQueue->Signal(mFence.Get(), mFenceValue);
     if (FAILED(hr))
     {
         MessageBox(0, L"Erreur lors du Signal du Fence.", 0, 0);
         return;
     }
 
-    // Attendre que le GPU atteigne le fence
+    // Wait until the GPU has completed commands up to this fence point.
     if (mFence->GetCompletedValue() < mFenceValue)
     {
         HANDLE eventHandle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
@@ -110,12 +132,4 @@ void InitDirect3DApp::Draw()
         WaitForSingleObject(eventHandle, INFINITE);
         CloseHandle(eventHandle);
     }
-    mFenceValue++;
-
-    // Transition du back buffer de RENDER_TARGET à PRESENT avant de le présenter
-    barrier = CD3DX12_RESOURCE_BARRIER::Transition(mRenderTargets[mFrameIndex].Get(),D3D12_RESOURCE_STATE_RENDER_TARGET,D3D12_RESOURCE_STATE_PRESENT);
-    mCommandList->ResourceBarrier(1, &barrier);
-
-    // Presenter le SwapChain (1 pour V-Sync)
-    mSwapChain->Present(1, 0);
 }

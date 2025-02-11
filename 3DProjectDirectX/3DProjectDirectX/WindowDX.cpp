@@ -87,29 +87,14 @@ int WindowDX::Run()
     while (msg.message != WM_QUIT)
     {
         // If there are Window messages then process them.
-        if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
+        while (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
         {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
         // Otherwise, do animation/game stuff.
-        else
-        {
-            Update();
-            Draw();
-            //mTimer.Tick();
-
-            //if (!mAppPaused)
-            //{
-            //    CalculateFrameStats();
-            //    Update(mTimer);
-            //    Draw(mTimer);
-            //}
-            //else
-            //{
-            //    Sleep(100);
-            //}
-        }
+        Update();
+        Draw();
     }
 
     return (int)msg.wParam;
