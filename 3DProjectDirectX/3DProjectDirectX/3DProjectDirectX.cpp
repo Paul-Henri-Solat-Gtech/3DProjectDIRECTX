@@ -10,11 +10,11 @@ public:
     bool Initialize();
     void Update() override;
     void Draw() override;
-    void FlushCommandQueue();
 
 private:
-    std::unique_ptr<TriangleRenderer> m_TriangleRenderer;
-
+    //std::unique_ptr<TriangleRenderer> m_TriangleRenderer;
+    TriangleRenderer* m_TriangleRenderer;
+    ComPtr<ID3D12PipelineState> mPSO;
 };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd)
@@ -34,11 +34,19 @@ bool InitDirect3DApp::Initialize()
     if (!WindowDX::Initialize())
         return false;
 
-    FlushCommandQueue();
-
-    m_TriangleRenderer = std::make_unique<TriangleRenderer>(mD3DDevice.Get(), mCommandQueue.Get(),mCommandList.Get(), mSwapChain.Get(), mRtvHeap.Get());
+ /*   m_TriangleRenderer = std::make_unique<TriangleRenderer>(mD3DDevice.Get(), mCommandQueue.Get(),mCommandList.Get(), mSwapChain.Get(), mRtvHeap.Get(),mRtvDescriptorSize);
     if (!m_TriangleRenderer->Initialize())
+        return false;*/
+
+    m_TriangleRenderer = new TriangleRenderer(mD3DDevice.Get(), mCommandQueue.Get(), mCommandList.Get(), mSwapChain.Get(), mRtvHeap.Get(), mRtvDescriptorSize);
+    if (!m_TriangleRenderer->Initialize())
+    {
+        delete m_TriangleRenderer;  // Libération si l'initialisation échoue
+        m_TriangleRenderer = nullptr;
         return false;
+    }
+    mPSO = m_TriangleRenderer->GetPipelineState();
+
 
     return true;
 }
@@ -50,12 +58,6 @@ void InitDirect3DApp::Update()
 
 void InitDirect3DApp::Draw()
 {
-    assert(mD3DDevice);
-    assert(mSwapChain);
-    assert(mCommandAllocator);
-
-    FlushCommandQueue();
-
     // Reinitialise le command allocator et la command list
     HRESULT hr = mCommandAllocator->Reset();
     if (FAILED(hr))
@@ -63,28 +65,38 @@ void InitDirect3DApp::Draw()
         MessageBox(0, L"Erreur lors du Reset du Command Allocator.", 0, 0);
         return;
     }
-    hr = mCommandList->Reset(mCommandAllocator.Get(), nullptr);
+    hr = mCommandList->Reset(mCommandAllocator.Get(), nullptr); // rajouter le pipeline state
     if (FAILED(hr))
     {
         MessageBox(0, L"Erreur lors du Reset de la Command List.", 0, 0);
         return;
     }
 
-    //mFrameIndex = mSwapChain->GetCurrentBackBufferIndex();
+    mCommandList->RSSetViewports(1, &mScreenViewport);
+    mCommandList->RSSetScissorRects(1, &mScissorRect);
 
     // Prendre le handle de la vue du tampon de rendu
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(mRtvHeap->GetCPUDescriptorHandleForHeapStart(), mFrameIndex, mRtvDescriptorSize);
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(mRtvHeap->GetCPUDescriptorHandleForHeapStart(), mCurrBackBuffer, mRtvDescriptorSize);
 
-    // Commencer la commande de dessin
-    CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(mRenderTargets[mFrameIndex].Get(),D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
-    mCommandList->ResourceBarrier(1, &barrier);
+    // Commencer la commande de dessin BARRIER START
+    CD3DX12_RESOURCE_BARRIER barrierStart = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    mCommandList->ResourceBarrier(1, &barrierStart);
+
+    FLOAT clearColor[] = { 0.0f, 0.0f, 1.0f, 1.0f };
+    mCommandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+
+    mCommandList->OMSetRenderTargets(1, &rtvHandle, true, nullptr);
+
 
     // Appel pour dessiner le triangle
+    //mCommandList->SetGraphicsRootSignature(m_TriangleRenderer->GetRootSignature());
+    //mCommandList->SetPipelineState(m_TriangleRenderer->GetPipelineState());
+
     m_TriangleRenderer->Render(); // Rendu du triangle ici
 
-    // Transition du back buffer de RENDER_TARGET à PRESENT avant de le présenter
-    barrier = CD3DX12_RESOURCE_BARRIER::Transition(mRenderTargets[mFrameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
-    mCommandList->ResourceBarrier(1, &barrier);
+    // Transition du back buffer de RENDER_TARGET à PRESENT avant de le présenter BARRIER STOP
+    CD3DX12_RESOURCE_BARRIER barrierStop = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+    mCommandList->ResourceBarrier(1, &barrierStop);
 
     // Fermer la Command List
     mCommandList->Close();
@@ -95,41 +107,9 @@ void InitDirect3DApp::Draw()
 
     FlushCommandQueue();
 
-    // Presenter le SwapChain (1 pour V-Sync)
-    mSwapChain->Present(1, 0);
+    // Presenter le SwapChain (1 pour V-Sync) swap the back & front buffer
+    mSwapChain->Present(0, 0);
+    mCurrBackBuffer = (mCurrBackBuffer + 1) % SwapChainBufferCount;
 
-    //mFrameIndex = 1 - mFrameIndex;
-    mFrameIndex += 1;
 
-    FlushCommandQueue();
-}
-
-void InitDirect3DApp::FlushCommandQueue()
-{
-    // Advance the fence value to mark commands up to this fence point.
-    mFenceValue++;
-
-    // Add an instruction to the command queue to set a new fence point.  Because we 
-    // are on the GPU timeline, the new fence point won't be set until the GPU finishes
-    // processing all the commands prior to this Signal().
-    HRESULT hr = mCommandQueue->Signal(mFence.Get(), mFenceValue);
-    if (FAILED(hr))
-    {
-        MessageBox(0, L"Erreur lors du Signal du Fence.", 0, 0);
-        return;
-    }
-
-    // Wait until the GPU has completed commands up to this fence point.
-    if (mFence->GetCompletedValue() < mFenceValue)
-    {
-        HANDLE eventHandle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-        hr = mFence->SetEventOnCompletion(mFenceValue, eventHandle);
-        if (FAILED(hr))
-        {
-            MessageBox(0, L"Erreur lors du SetEventOnCompletion du Fence.", 0, 0);
-            return;
-        }
-        WaitForSingleObject(eventHandle, INFINITE);
-        CloseHandle(eventHandle);
-    }
 }

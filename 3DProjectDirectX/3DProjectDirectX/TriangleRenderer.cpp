@@ -1,8 +1,8 @@
 #include "TriangleRenderer.h"
 #include <d3dcompiler.h>
 
-TriangleRenderer::TriangleRenderer(ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12GraphicsCommandList* commandList, IDXGISwapChain3* swapChain, ID3D12DescriptorHeap* rtvHeap)
-    : m_Device(device), m_CommandQueue(commandQueue),m_CommandList(commandList), m_SwapChain(swapChain), m_RtvHeap(rtvHeap)
+TriangleRenderer::TriangleRenderer(ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12GraphicsCommandList* commandList, IDXGISwapChain3* swapChain, ID3D12DescriptorHeap* rtvHeap, UINT rtvDescriptorSize)
+    : m_Device(device), m_CommandQueue(commandQueue),m_CommandList(commandList), m_SwapChain(swapChain), m_RtvHeap(rtvHeap),m_RtvDescriptorSize(rtvDescriptorSize)
 {
 }
 
@@ -27,27 +27,29 @@ void TriangleRenderer::Render()
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_RtvHeap->GetCPUDescriptorHandleForHeapStart(), backBufferIndex, m_RtvDescriptorSize);
 
     //// Clear the render target
-    FLOAT clearColor[] = { 0.0f, 0.0f, 1.0f, 1.0f };
-    m_CommandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+ 
 
     // Set the pipeline state and root signature
-    m_CommandList->SetPipelineState(m_PipelineState.Get());
     m_CommandList->SetGraphicsRootSignature(m_RootSignature.Get());
+    m_CommandList->SetPipelineState(m_PipelineState.Get());
+ 
 
     // Set primitive topology
-    m_CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
     m_CommandList->IASetVertexBuffers(0, 1, &m_VertexBufferView);
+    m_CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     // Draw the triangle
     m_CommandList->DrawInstanced(3, 1, 0, 0);
+    //MessageBox(0, L"Triangle is here !", L"Draw", MB_OK);
 }
 
 void TriangleRenderer::CreateVertexBuffer()
 {
     Vertex m_triangleVertices[] =
     {
-        { DirectX::XMFLOAT3(0.0f, 0.5f, 0.0f), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) }, // Haut (Rouge)
-        { DirectX::XMFLOAT3(0.5f, -0.5f, 0.0f), DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) }, // Bas droit (Vert)
-        { DirectX::XMFLOAT3(0.0f, -0.5f, 0.0f), DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) }  // Bas gauche (Bleu)
+        { DirectX::XMFLOAT3(0.0f, 0.5f, 5.0f), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) }, // Haut (Rouge)
+        { DirectX::XMFLOAT3(0.5f, -0.5f, 5.0f), DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) }, // Bas droit (Vert)
+        { DirectX::XMFLOAT3(0.0f, -0.5f, 5.0f), DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) }  // Bas gauche (Bleu)
     };
 
     const UINT vertexBufferSize = sizeof(m_triangleVertices);
@@ -85,7 +87,7 @@ void TriangleRenderer::CreatePipelineState()
     ComPtr<ID3DBlob> signature = nullptr;
     ComPtr<ID3DBlob> error = nullptr;
     D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
-    m_Device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature));
+    HRESULT h = m_Device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature));
 
     // Load and compile shaders
     ComPtr<ID3DBlob> vertexShader;
@@ -134,5 +136,20 @@ void TriangleRenderer::CreatePipelineState()
     psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
     psoDesc.SampleDesc.Count = 1;
 
-    m_Device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_PipelineState));
+    hr = m_Device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_PipelineState));
+    if (FAILED(hr))
+    {
+        MessageBox(0, L"CreateGraphicsPipelineState failed.", L"Error", MB_OK);
+        return;
+    }
+}
+
+ID3D12PipelineState* TriangleRenderer::GetPipelineState() const
+{
+    return m_PipelineState.Get();
+}
+
+ID3D12RootSignature* TriangleRenderer::GetRootSignature() const
+{
+    return m_RootSignature.Get();
 }

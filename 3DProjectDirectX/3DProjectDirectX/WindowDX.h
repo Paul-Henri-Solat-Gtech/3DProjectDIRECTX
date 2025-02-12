@@ -12,7 +12,7 @@
 
 // DirectX12
 #include "d3dx12.h"
-#include "d3dUtil.h"
+//#include "d3dUtil.h"
 
 // Link necessary d3d12 libraries.
 #pragma comment(lib,"d3dcompiler.lib")
@@ -55,9 +55,17 @@ private:
 protected:
 	// Nouvelle methode pour initialiser DirectX12
 	bool InitDirect3D();
+	void OnResize();
+	void FlushCommandQueue();
+	ID3D12Resource* CurrentBackBuffer()const;
+	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView()const;
+	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
 
 	// Membres DirectX12
-	UINT mFrameIndex = 0;
+	//UINT mFrameIndex = 0;
+	D3D12_VIEWPORT mScreenViewport;
+	D3D12_RECT mScissorRect;
+
 	UINT64 mFenceValue = 0;
 	ComPtr<ID3D12Fence> mFence;
 	ComPtr<ID3D12CommandAllocator> mCommandAllocator;
@@ -66,9 +74,18 @@ protected:
 	ComPtr<ID3D12CommandQueue>     mCommandQueue;
 	ComPtr<IDXGISwapChain3>        mSwapChain;
 	ComPtr<ID3D12DescriptorHeap>   mRtvHeap;
-	static const UINT			   mFrameCount = 2; // Double buffering
-	ComPtr<ID3D12Resource>         mRenderTargets[mFrameCount];
+	ComPtr<ID3D12DescriptorHeap>   mDsvHeap;
+	static const int			   SwapChainBufferCount = 2; // Double buffering
+	int mCurrBackBuffer = 0;
+	ComPtr<ID3D12Resource>         mRenderTargets[SwapChainBufferCount];
 	UINT                           mRtvDescriptorSize = 0;
+
+	ComPtr<ID3D12Resource> mDepthStencilBuffer;
+	DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+	DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	// Set true to use 4X MSAA The default is false.
+	bool      m4xMsaaState = false;    // 4X MSAA enabled
+	UINT      m4xMsaaQuality = 0;      // quality level of 4X MSAA
 
 };
 
