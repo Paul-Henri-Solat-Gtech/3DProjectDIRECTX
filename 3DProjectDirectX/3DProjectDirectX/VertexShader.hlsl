@@ -11,7 +11,7 @@ struct VS_INPUT
 
 struct PS_INPUT
 {
-    float4 pos : SV_POSITION; // SV_POSITION est utilisé pour les shaders modernes
+    float4 pos : SV_POSITION; // SV_POSITION est utilise pour les shaders modernes
     float4 color : COLOR;
 };
 
