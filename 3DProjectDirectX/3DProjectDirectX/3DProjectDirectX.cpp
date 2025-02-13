@@ -41,7 +41,7 @@ bool InitDirect3DApp::Initialize()
     m_TriangleRenderer = new TriangleRenderer(mD3DDevice.Get(), mCommandQueue.Get(), mCommandList.Get(), mSwapChain.Get(), mRtvHeap.Get(), mRtvDescriptorSize);
     if (!m_TriangleRenderer->Initialize())
     {
-        delete m_TriangleRenderer;  // Libération si l'initialisation échoue
+        delete m_TriangleRenderer;  // Liberation si l'initialisation echoue
         m_TriangleRenderer = nullptr;
         return false;
     }
@@ -94,7 +94,7 @@ void InitDirect3DApp::Draw()
 
     m_TriangleRenderer->Render(); // Rendu du triangle ici
 
-    // Transition du back buffer de RENDER_TARGET à PRESENT avant de le présenter BARRIER STOP
+    // Transition du back buffer de RENDER_TARGET PRESENT avant de le presenter BARRIER STOP
     CD3DX12_RESOURCE_BARRIER barrierStop = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
     mCommandList->ResourceBarrier(1, &barrierStop);
 

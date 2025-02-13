@@ -49,7 +49,7 @@ void TriangleRenderer::CreateVertexBuffer()
     {
         { DirectX::XMFLOAT3(0.0f, 0.5f, 5.0f), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) }, // Haut (Rouge)
         { DirectX::XMFLOAT3(0.5f, -0.5f, 5.0f), DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) }, // Bas droit (Vert)
-        { DirectX::XMFLOAT3(0.0f, -0.5f, 5.0f), DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) }  // Bas gauche (Bleu)
+        { DirectX::XMFLOAT3(-0.5f, -0.5f, 0.5f), DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) }  // Bas gauche (Bleu)
     };
 
     const UINT vertexBufferSize = sizeof(m_triangleVertices);
