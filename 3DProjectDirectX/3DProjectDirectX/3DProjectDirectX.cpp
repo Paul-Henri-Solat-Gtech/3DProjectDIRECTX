@@ -33,7 +33,7 @@ bool InitDirect3DApp::Initialize()
 {
     if (!WindowDX::Initialize())
         return false;
-
+    //TEST COMMIT 
  /*   m_TriangleRenderer = std::make_unique<TriangleRenderer>(mD3DDevice.Get(), mCommandQueue.Get(),mCommandList.Get(), mSwapChain.Get(), mRtvHeap.Get(),mRtvDescriptorSize);
     if (!m_TriangleRenderer->Initialize())
         return false;*/
