@@ -38,7 +38,10 @@ bool InitDirect3DApp::Initialize()
     if (!m_TriangleRenderer->Initialize())
         return false;*/
 
-    m_TriangleRenderer = new TriangleRenderer(mD3DDevice.Get(), mCommandQueue.Get(), mCommandList.Get(), mSwapChain.Get(), mRtvHeap.Get(), mRtvDescriptorSize);
+    float squareSize = 0.5f;
+    DirectX::XMFLOAT4 squareColor = { 1.0f, 0.0f, 0.0f, 1.0f };
+
+    m_TriangleRenderer = new TriangleRenderer(mD3DDevice.Get(), mCommandQueue.Get(), mCommandList.Get(), mSwapChain.Get(), mRtvHeap.Get(), mRtvDescriptorSize, squareSize, squareColor);
     if (!m_TriangleRenderer->Initialize())
     {
         delete m_TriangleRenderer;  // Liberation si l'initialisation echoue

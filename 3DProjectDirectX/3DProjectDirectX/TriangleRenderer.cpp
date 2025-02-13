@@ -1,15 +1,15 @@
 #include "TriangleRenderer.h"
 #include <d3dcompiler.h>
 
-TriangleRenderer::TriangleRenderer(ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12GraphicsCommandList* commandList, IDXGISwapChain3* swapChain, ID3D12DescriptorHeap* rtvHeap, UINT rtvDescriptorSize)
-    : m_Device(device), m_CommandQueue(commandQueue),m_CommandList(commandList), m_SwapChain(swapChain), m_RtvHeap(rtvHeap),m_RtvDescriptorSize(rtvDescriptorSize)
+TriangleRenderer::TriangleRenderer(ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12GraphicsCommandList* commandList, IDXGISwapChain3* swapChain, ID3D12DescriptorHeap* rtvHeap, UINT rtvDescriptorSize, float size, DirectX::XMFLOAT4 color)
+    : m_Device(device), m_CommandQueue(commandQueue),m_CommandList(commandList), m_SwapChain(swapChain), m_RtvHeap(rtvHeap),m_RtvDescriptorSize(rtvDescriptorSize), m_Size(size), m_Color(color)
 {
 }
 
 bool TriangleRenderer::Initialize()
 {
     CreatePipelineState();
-    CreateVertexBuffer();
+    CreateVertexBuffer(m_Size, m_Color);
     return true;
 }
 
@@ -39,12 +39,14 @@ void TriangleRenderer::Render()
     m_CommandList->IASetVertexBuffers(0, 1, &m_VertexBufferView);
     m_CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     // Draw the triangle
-    m_CommandList->DrawInstanced(3, 1, 0, 0);
+    m_CommandList->DrawInstanced(6, 1, 0, 0);
     //MessageBox(0, L"Triangle is here !", L"Draw", MB_OK);
 }
 
-void TriangleRenderer::CreateVertexBuffer()
+void TriangleRenderer::CreateVertexBuffer(float size, DirectX::XMFLOAT4 color)
 {
+    float halfSize = size / 2.0f;
+
     Vertex m_triangleVertices[] =
     {
         // X Y Z | R G B A
@@ -53,7 +55,20 @@ void TriangleRenderer::CreateVertexBuffer()
         { DirectX::XMFLOAT3(-0.5f, -0.5f, 0.0f), DirectX::XMFLOAT4(1.0f, 0.0f, 1.0f, 1.0f) },  // Bas gauche (Violet)
     };
 
-    const UINT vertexBufferSize = sizeof(m_triangleVertices);
+    Vertex m_squareVertices[] =
+    {
+        // X Y Z       | R G B A
+        { DirectX::XMFLOAT3(-halfSize, halfSize, 0.0f), color },  // Haut gauche
+        { DirectX::XMFLOAT3(halfSize, halfSize, 0.0f), color },   // Haut droit
+        { DirectX::XMFLOAT3(-halfSize, -halfSize, 0.0f), color }, // Bas gauche
+
+        { DirectX::XMFLOAT3(-halfSize, -halfSize, 0.0f), color }, // Bas gauche
+        { DirectX::XMFLOAT3(halfSize, halfSize, 0.0f), color },   // Haut droit
+        { DirectX::XMFLOAT3(halfSize, -halfSize, 0.0f), color },  // Bas droit
+    };
+
+    // const UINT vertexBufferSize = sizeof(m_triangleVertices);
+    const UINT vertexBufferSize = sizeof(m_squareVertices);
 
     // Create vertex buffer
     CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
@@ -70,7 +85,8 @@ void TriangleRenderer::CreateVertexBuffer()
     void* pVertexDataBegin;
     CD3DX12_RANGE readRange(0, 0);
     m_VertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
-    memcpy(pVertexDataBegin, m_triangleVertices, vertexBufferSize);
+    // memcpy(pVertexDataBegin, m_triangleVertices, vertexBufferSize);
+    memcpy(pVertexDataBegin, m_squareVertices, vertexBufferSize);
     m_VertexBuffer->Unmap(0, nullptr);
 
     // Initialize vertex buffer view

@@ -19,7 +19,7 @@ struct Vertex
 class TriangleRenderer
 {
 public:
-    TriangleRenderer(ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12GraphicsCommandList* commandList, IDXGISwapChain3* swapChain, ID3D12DescriptorHeap* rtvHeap, UINT rtvDescriptorSize);
+    TriangleRenderer(ID3D12Device* device, ID3D12CommandQueue* commandQueue, ID3D12GraphicsCommandList* commandList, IDXGISwapChain3* swapChain, ID3D12DescriptorHeap* rtvHeap, UINT rtvDescriptorSize, float size, DirectX::XMFLOAT4 color);
     bool Initialize();
     void Update();
     void Render();
@@ -28,8 +28,11 @@ public:
     ID3D12RootSignature* GetRootSignature() const;
 
 private:
-    void CreateVertexBuffer();
+    void CreateVertexBuffer(float size, DirectX::XMFLOAT4 color);
     void CreatePipelineState();
+
+    float m_Size;
+    DirectX::XMFLOAT4 m_Color;
 
     UINT m_RtvDescriptorSize;
     ComPtr<ID3D12Resource> m_RenderTargets[2];
