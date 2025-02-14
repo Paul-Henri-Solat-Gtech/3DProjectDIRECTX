@@ -38,10 +38,18 @@ bool InitDirect3DApp::Initialize()
     if (!m_TriangleRenderer->Initialize())
         return false;*/
 
-    float squareSize = 0.5f;
-    DirectX::XMFLOAT4 squareColor = { 1.0f, 0.0f, 0.0f, 1.0f };
+    D3D12_DEPTH_STENCIL_DESC depthStencilDesc = {};
+    depthStencilDesc.DepthEnable = TRUE;
+    depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+    depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+    depthStencilDesc.StencilEnable = FALSE;
 
-    m_TriangleRenderer = new TriangleRenderer(mD3DDevice.Get(), mCommandQueue.Get(), mCommandList.Get(), mSwapChain.Get(), mRtvHeap.Get(), mRtvDescriptorSize, squareSize, squareColor);
+    
+
+    float squareSize = 1.0f;
+    DirectX::XMFLOAT4 squareColor = { 1.0f, 0.0f, 0.0f, 0.0f };
+
+    m_TriangleRenderer = new TriangleRenderer(mD3DDevice.Get(), mCommandQueue.Get(), mCommandList.Get(), mSwapChain.Get(), mRtvHeap.Get(), mDsvHeap.Get(), mRtvDescriptorSize, squareSize, squareColor, depthStencilDesc);
     if (!m_TriangleRenderer->Initialize())
     {
         delete m_TriangleRenderer;  // Liberation si l'initialisation echoue
