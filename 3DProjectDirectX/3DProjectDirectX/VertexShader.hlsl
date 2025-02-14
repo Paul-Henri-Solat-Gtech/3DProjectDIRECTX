@@ -1,7 +1,7 @@
-//cbuffer Transform : register(b0) // Buffer de constantes contenant la matrice de transformation
-//{
-//    matrix WorldMatrix;
-//};
+cbuffer Transform : register(b0) // Buffer de constantes contenant la matrice de transformation
+{
+    matrix WorldViewProj;
+};
 
 struct VS_INPUT
 {
@@ -18,8 +18,8 @@ struct PS_INPUT
 PS_INPUT VSMain(VS_INPUT input)
 {
     PS_INPUT output;
-    output.pos = float4(input.pos, 1.0f);
-    // output.pos = mul(float4(input.pos, 1.0f), WorldMatrix); // Appliquer la transformation
+    // output.pos = float4(input.pos, 1.0f);
+    output.pos = mul(float4(input.pos, 1.0f), WorldViewProj); // Appliquer la transformation
     output.color = input.color;
     return output;
 }
